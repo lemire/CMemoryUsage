@@ -36,10 +36,16 @@ int posix_memalign(void **memptr, size_t alignment, size_t size) {
 }
 
 void * calloc(size_t count, size_t size) {
-    void* answer = malloc(count * size);
-    malloced_memory_usage += size;
-    memset(answer,0,count * size);
-    return answer;
+    size_t sz = count * size;
+    void *(*libc_malloc)(size_t) = dlsym(RTLD_NEXT, "malloc");
+    size_t volume = sz + sizeof(size_t) + sizeof(myalloc_cookie);
+    void * answerplus =  libc_malloc(volume);
+    memset(answerplus,0,volume);
+    if(answerplus == NULL) return answerplus;// nothing can be done
+    malloced_memory_usage += sz;
+    memcpy(answerplus ,&myalloc_cookie,sizeof(myalloc_cookie));
+    memcpy((char *) answerplus + sizeof(myalloc_cookie),&sz,sizeof(sz));
+    return ((char *) answerplus) + sizeof(size_t) + sizeof(myalloc_cookie);
 }
 
 void free(void *p) {
